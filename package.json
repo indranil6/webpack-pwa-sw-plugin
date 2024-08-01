@@ -1,0 +1,22 @@
+{
+  "name": "webpack-pwa-sw-plugin",
+  "version": "1.0.0",
+  "description": "webpack-pwa-sw-plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Indranil Kundu",
+  "license": "MIT",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7",
+    "workbox-precaching": "^7.1.0",
+    "workbox-routing": "^7.1.0",
+    "workbox-strategies": "^7.1.0",
+    "workbox-webpack-plugin": "^7.1.0"
+  },
+  "peerDependencies": {
+    "webpack": ">=4.0.0"
+  }
+}
