@@ -2,14 +2,14 @@ const { InjectManifest } = require("workbox-webpack-plugin");
 const fs = require("fs");
 const path = require("path");
 
-class WebpackPwaPlugin {
+class WebpackPwaSwPlugin {
   constructor(options = {}) {
     this.options = options;
   }
 
   apply(compiler) {
     compiler.hooks.emit.tapAsync(
-      "WebpackPwaPlugin",
+      "WebpackPwaSwPlugin",
       (compilation, callback) => {
         const manifest = {
           name: this.options.name || "PWA App",
@@ -43,7 +43,7 @@ class WebpackPwaPlugin {
     );
 
     compiler.hooks.make.tapAsync(
-      "WebpackPwaPlugin",
+      "WebpackPwaSwPlugin",
       (compilation, callback) => {
         const serviceWorkerContent = `
         import { precacheAndRoute } from 'workbox-precaching';
@@ -79,4 +79,4 @@ class WebpackPwaPlugin {
   }
 }
 
-module.exports = WebpackPwaPlugin;
+module.exports = WebpackPwaSwPlugin;

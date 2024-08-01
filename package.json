@@ -1,7 +1,7 @@
 {
   "name": "webpack-pwa-sw-plugin",
   "version": "1.0.0",
-  "description": "webpack-pwa-sw-plugin",
+  "description": "A Webpack plugin to easily add PWA and Service Worker support to your application with no configuration.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
