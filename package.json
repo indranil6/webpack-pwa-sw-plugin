@@ -4,19 +4,26 @@
   "description": "A Webpack plugin to easily add PWA and Service Worker support to your application with no configuration.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "unlink": "npm unlink -g webpack-pwa-sw-plugin"
   },
   "author": "Indranil Kundu",
   "license": "MIT",
   "dependencies": {
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
+    "workbox-background-sync": "^7.1.0",
+    "workbox-cacheable-response": "^7.1.0",
+    "workbox-core": "^7.1.0",
+    "workbox-expiration": "^7.1.0",
     "workbox-precaching": "^7.1.0",
     "workbox-routing": "^7.1.0",
     "workbox-strategies": "^7.1.0",
-    "workbox-webpack-plugin": "^7.1.0"
+    "workbox-webpack-plugin": "^7.1.0",
+    "workbox-window": "^7.1.0"
   },
   "peerDependencies": {
-    "webpack": ">=4.0.0"
+    "webpack": ">=4.0.0",
+    "html-webpack-plugin": "^5.6.0"
   }
 }

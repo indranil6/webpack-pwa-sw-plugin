@@ -1,35 +1,64 @@
 const { InjectManifest } = require("workbox-webpack-plugin");
 const fs = require("fs");
 const path = require("path");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 class WebpackPwaSwPlugin {
   constructor(options = {}) {
     this.options = options;
   }
 
+  generateServiceWorker(version) {
+    return `
+      import { clientsClaim } from 'workbox-core';
+      import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
+      import { setupRuntimeCaching, expectedCaches } from './runtimeCaching';
+
+      const manifest = self.__WB_MANIFEST;
+      clientsClaim();
+
+      cleanupOutdatedCaches();
+      precacheAndRoute(manifest);
+
+      self.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SKIP_WAITING') {
+          console.log('new service worker requested skip:');
+          setTimeout(() => self.skipWaiting(), 400);
+        }
+      });
+
+      self.addEventListener('install', (event) => {
+        console.log('service worker installed:');
+      });
+
+      self.addEventListener('activate', (event) => {
+        event.waitUntil(
+          caches.keys().then((keys) => 
+            Promise.all(keys.map((key) => {
+              if (!expectedCaches.includes(key) && !key.includes('workbox-precache')) {
+                return caches.delete(key);
+              }
+            }))
+          ).then(() => {
+            console.log('SW now ready to handle fetches!');
+          })
+        );
+      });
+
+      setupRuntimeCaching('${version || 0}');
+    `;
+  }
+
   apply(compiler) {
+    const packageJsonPath = path.resolve(compiler.context, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    const version = packageJson.version;
+
     compiler.hooks.emit.tapAsync(
       "WebpackPwaSwPlugin",
       (compilation, callback) => {
         const manifest = {
-          name: this.options.name || "PWA App",
-          short_name: this.options.shortName || "PWA",
-          start_url: this.options.startUrl || ".",
-          display: this.options.display || "standalone",
-          background_color: this.options.backgroundColor || "#ffffff",
-          theme_color: this.options.themeColor || "#ffffff",
-          icons: this.options.icons || [
-            {
-              src: "icons/icon-192x192.png",
-              sizes: "192x192",
-              type: "image/png",
-            },
-            {
-              src: "icons/icon-512x512.png",
-              sizes: "512x512",
-              type: "image/png",
-            },
-          ],
+          ...this.options.manifest,
         };
 
         const manifestJson = JSON.stringify(manifest, null, 2);
@@ -38,36 +67,13 @@ class WebpackPwaSwPlugin {
           size: () => manifestJson.length,
         };
 
+        const serviceWorkerContent = this.generateServiceWorker(version);
+        compilation.assets["service-worker.js"] = {
+          source: () => serviceWorkerContent,
+          size: () => serviceWorkerContent.length,
+        };
+
         callback();
-      }
-    );
-
-    compiler.hooks.make.tapAsync(
-      "WebpackPwaSwPlugin",
-      (compilation, callback) => {
-        const serviceWorkerContent = `
-        import { precacheAndRoute } from 'workbox-precaching';
-        import { registerRoute } from 'workbox-routing';
-        import { StaleWhileRevalidate } from 'workbox-strategies';
-
-        precacheAndRoute(self.__WB_MANIFEST);
-
-        registerRoute(
-          ({ request }) => request.destination === 'document' || request.destination === 'script' || request.destination === 'style',
-          new StaleWhileRevalidate()
-        );
-      `;
-
-        const serviceWorkerPath = path.resolve(
-          __dirname,
-          "temp-service-worker.js"
-        );
-        fs.writeFile(serviceWorkerPath, serviceWorkerContent, (err) => {
-          if (err) {
-            compilation.errors.push(err);
-          }
-          callback();
-        });
       }
     );
 
@@ -76,6 +82,55 @@ class WebpackPwaSwPlugin {
       swDest: "service-worker.js",
       ...this.options.workboxOptions,
     }).apply(compiler);
+
+    compiler.hooks.compilation.tap("WebpackPwaSwPlugin", (compilation) => {
+      HtmlWebpackPlugin.getHooks(compilation).beforeEmit.tapAsync(
+        "WebpackPwaSwPlugin",
+        (data, cb) => {
+          const scriptContent = `
+            if ('serviceWorker' in navigator) {
+              import { Workbox } from 'workbox-window';
+              const wb = new Workbox('/service-worker.js');
+
+              const showSkipWaitingPrompt = async (event) => {
+                wb.addEventListener('controlling', () => {
+                  window.location.reload();
+                });
+
+                const result = confirm('New version available, reload?');
+                if (result) {
+                  wb.messageSkipWaiting();
+                }
+              };
+
+              wb.addEventListener('waiting', (event) => {
+                showSkipWaitingPrompt(event);
+              });
+
+              wb.register()
+                .then((reg) => {
+                  console.log('Service worker registered', reg);
+                })
+                .catch((err) => {
+                  console.error('Service worker registration failed', err);
+                });
+            }
+          `;
+
+          data.html = data.html.replace(
+            '</body>',
+            `<script type="module">${scriptContent}</script></body>`
+          );
+
+          data.html = data.html.replace(
+            '</head>',
+            '<link rel="manifest" href="/manifest.json"></head>'
+          );
+
+          cb(null, data);
+        }
+      );
+    });
   }
 }
 
