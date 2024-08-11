@@ -21,8 +21,25 @@ if ("serviceWorker" in navigator) {
 
   // Listen for the `waiting` event from the service worker
   wb.addEventListener("waiting", () => {
-    wb.addEventListener("controlling", () => window.location.reload());
-    if (confirm("New version available, reload?")) {
+    wb.addEventListener("controlling", () =>
+      options?.onNeedRefresh && typeof options?.onNeedRefresh == "function"
+        ? options?.onNeedRefresh()
+        : window.location.reload()
+    );
+    if (
+      typeof options?.showPromptOnUpdate == "boolean" &&
+      options?.showPromptOnUpdate
+    ) {
+      if (
+        confirm(
+          options?.promptText
+            ? options?.promptText
+            : "New Version available. Reload?"
+        )
+      ) {
+        wb.messageSkipWaiting();
+      }
+    } else {
       wb.messageSkipWaiting();
     }
   });

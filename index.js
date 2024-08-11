@@ -48,7 +48,9 @@ class WebpackPwaSwPlugin {
         );
       });
 
-      setupRuntimeCaching('${version || 0}');
+      setupRuntimeCaching('${version || 0}', ${JSON.stringify(
+      this.options.runtimeCaching
+    )});
     `;
   }
 
@@ -88,9 +90,15 @@ class WebpackPwaSwPlugin {
     new InjectManifest({
       swSrc: path.resolve(__dirname, "virtual-service-worker.js"),
       swDest: "service-worker.js",
+      maximumFileSizeToCacheInBytes: 15000000,
+      exclude: [
+        /manifest\.json$/,
+        /\.(map|bcmap|png|jpg|jpeg|gif|webp|svg|txt|json)$/,
+        /(well-known|googleapis|cmaps)/,
+      ],
       ...this.options.workboxOptions,
     }).apply(compiler);
-    
+
     // Inject options via DefinePlugin
     compiler.options.plugins.push(
       new webpack.DefinePlugin({

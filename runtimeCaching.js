@@ -9,9 +9,14 @@ import { ExpirationPlugin } from "workbox-expiration";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { BackgroundSyncPlugin } from "workbox-background-sync";
 import runtimeCachingConfig from "./runtimeCachingConfig";
+import { BroadcastUpdatePlugin } from "workbox-broadcast-update";
+import { RangeRequestsPlugin } from "workbox-range-requests";
 
-export function setupRuntimeCaching(version = 0) {
-  runtimeCachingConfig.forEach(({ urlPattern, handler, options }) => {
+export function setupRuntimeCaching(version = 0, customConfig = "") {
+  let cachingConfig = customConfig
+    ? JSON.parse(customConfig)
+    : runtimeCachingConfig;
+  cachingConfig.forEach(({ urlPattern, method = "GET", handler, options }) => {
     let strategy;
     const plugins = [];
 
@@ -27,10 +32,7 @@ export function setupRuntimeCaching(version = 0) {
       );
     }
 
-    if (
-      options.isBackgroundSyncEnabled &&
-      (handler === "NetworkFirst" || handler === "NetworkOnly")
-    ) {
+    if (options.syncStrategies.includes("backgroundSync")) {
       // Add background sync plugin if isBackgroundSyncEnabled is true
       const bgSyncPlugin = new BackgroundSyncPlugin(
         "api-post-queue" + "v" + version,
@@ -67,6 +69,18 @@ export function setupRuntimeCaching(version = 0) {
       plugins.push(statusPlugin);
     }
 
+    if (options.syncStrategies.includes("broadcastUpdate")) {
+      plugins.push(
+        new BroadcastUpdatePlugin({
+          channelName: "api-channel" + "v" + version,
+        })
+      );
+    }
+
+    if (options.useRangeRequests) {
+      plugins.push(new RangeRequestsPlugin());
+    }
+
     // Create the appropriate caching strategy
     switch (handler) {
       case "CacheFirst":
@@ -86,6 +100,7 @@ export function setupRuntimeCaching(version = 0) {
       case "NetworkFirst":
         strategy = new NetworkFirst({
           cacheName: options.cacheName + "v" + version,
+          networkTimeoutSeconds: options.networkTimeoutSeconds,
           plugins,
         });
         break;
@@ -98,7 +113,7 @@ export function setupRuntimeCaching(version = 0) {
         throw new Error(`Unknown handler: ${handler}`);
     }
 
-    registerRoute(urlPattern, strategy);
+    registerRoute(urlPattern, strategy, method);
   });
 }
 export const expectedCaches = (version) =>
