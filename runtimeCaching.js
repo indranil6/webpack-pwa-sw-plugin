@@ -27,39 +27,42 @@ export function setupRuntimeCaching(version = 0) {
       );
     }
 
-    // Add background sync plugin if isBackgroundSyncEnabled is true
-    const bgSyncPlugin = new BackgroundSyncPlugin("api-post-queue", {
-      maxRetentionTime: 10, // Retry for max of 5 minutes (specified in minutes),
-      onSync: async ({ queue }) => {
-        console.log("...Synchronizing " + queue.name);
-        let entry;
-        while ((entry = await queue.shiftRequest())) {
-          try {
-            const { url, body, headers, method } = entry.request;
-            await fetch(entry.request);
-          } catch (error) {
-            console.error("Replay failed for request", url, error);
-            await queue.unshiftRequest(entry);
-            return;
-          }
-        }
-        console.log("Replay complete!");
-      },
-    });
-    const statusPlugin = {
-      fetchDidSucceed: ({ response }) => {
-        if (response.status > 500) {
-          // Throwing anything here will trigger fetchDidFail.
-          throw new Error("Server error.");
-        }
-        // If it's not 5xx, use the response as-is.
-        return response;
-      },
-    };
     if (
       options.isBackgroundSyncEnabled &&
       (handler === "NetworkFirst" || handler === "NetworkOnly")
     ) {
+      // Add background sync plugin if isBackgroundSyncEnabled is true
+      const bgSyncPlugin = new BackgroundSyncPlugin(
+        "api-post-queue" + "v" + version,
+        {
+          maxRetentionTime: 10, // Retry for max of 5 minutes (specified in minutes),
+          onSync: async ({ queue }) => {
+            console.log("...Synchronizing " + queue.name);
+            let entry;
+            while ((entry = await queue.shiftRequest())) {
+              try {
+                const { url, body, headers, method } = entry.request;
+                await fetch(entry.request);
+              } catch (error) {
+                console.error("Replay failed for request", url, error);
+                await queue.unshiftRequest(entry);
+                return;
+              }
+            }
+            console.log("Replay complete!");
+          },
+        }
+      );
+      const statusPlugin = {
+        fetchDidSucceed: ({ response }) => {
+          if (response.status > 500) {
+            // Throwing anything here will trigger fetchDidFail.
+            throw new Error("Server error.");
+          }
+          // If it's not 5xx, use the response as-is.
+          return response;
+        },
+      };
       plugins.push(bgSyncPlugin);
       plugins.push(statusPlugin);
     }
@@ -98,6 +101,5 @@ export function setupRuntimeCaching(version = 0) {
     registerRoute(urlPattern, strategy);
   });
 }
-export const expectedCaches = runtimeCachingConfig.map(
-  ({ options }) => options.cacheName + "v" + version
-);
+export const expectedCaches = (version) =>
+  runtimeCachingConfig.map(({ options }) => options.cacheName + "v" + version);

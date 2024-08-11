@@ -1,11 +1,12 @@
 const { InjectManifest } = require("workbox-webpack-plugin");
-const fs = require("fs");
+const VirtualModulesPlugin = require("webpack-virtual-modules");
 const path = require("path");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
+const webpack = require("webpack");
 
 class WebpackPwaSwPlugin {
   constructor(options = {}) {
     this.options = options;
+    this.virtualModules = new VirtualModulesPlugin();
   }
 
   generateServiceWorker(version) {
@@ -22,25 +23,27 @@ class WebpackPwaSwPlugin {
 
       self.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'SKIP_WAITING') {
-          console.log('new service worker requested skip:');
+          //console.log('new service worker requested skip:');
           setTimeout(() => self.skipWaiting(), 400);
         }
       });
 
       self.addEventListener('install', (event) => {
-        console.log('service worker installed:');
+        //console.log('service worker installed:');
       });
 
       self.addEventListener('activate', (event) => {
         event.waitUntil(
           caches.keys().then((keys) => 
             Promise.all(keys.map((key) => {
-              if (!expectedCaches.includes(key) && !key.includes('workbox-precache')) {
+              if (!expectedCaches('${
+                version || 0
+              }').includes(key) && !key.includes('workbox-precache')) {
                 return caches.delete(key);
               }
             }))
           ).then(() => {
-            console.log('SW now ready to handle fetches!');
+            //console.log('SW now ready to handle fetches!');
           })
         );
       });
@@ -51,7 +54,7 @@ class WebpackPwaSwPlugin {
 
   apply(compiler) {
     const packageJsonPath = path.resolve(compiler.context, "package.json");
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    const packageJson = require(packageJsonPath);
     const version = packageJson.version;
 
     compiler.hooks.emit.tapAsync(
@@ -67,69 +70,70 @@ class WebpackPwaSwPlugin {
           size: () => manifestJson.length,
         };
 
-        const serviceWorkerContent = this.generateServiceWorker(version);
-        compilation.assets["service-worker.js"] = {
-          source: () => serviceWorkerContent,
-          size: () => serviceWorkerContent.length,
-        };
-
         callback();
       }
     );
+    // Generate the service worker code as a virtual module
+    compiler.hooks.beforeCompile.tap("WebpackPwaSwPlugin", () => {
+      const serviceWorkerContent = this.generateServiceWorker(version);
+      this.virtualModules.writeModule(
+        path.resolve(__dirname, "virtual-service-worker.js"),
+        serviceWorkerContent
+      );
+      //console.log('Virtual service worker module written.'); // Debugging line
+    });
 
+    // Apply the virtual modules and InjectManifest plugin
+    this.virtualModules.apply(compiler);
     new InjectManifest({
-      swSrc: path.resolve(__dirname, "temp-service-worker.js"),
+      swSrc: path.resolve(__dirname, "virtual-service-worker.js"),
       swDest: "service-worker.js",
       ...this.options.workboxOptions,
     }).apply(compiler);
+    
+    // Inject options via DefinePlugin
+    compiler.options.plugins.push(
+      new webpack.DefinePlugin({
+        WEBPACK_PWA_SW_PLUGIN_OPTIONS: JSON.stringify(this.options),
+      })
+    );
+    const serviceWorkerRegistrationPath = path.resolve(
+      __dirname,
+      "serviceWorkerRegistration.js"
+    );
 
-    compiler.hooks.compilation.tap("WebpackPwaSwPlugin", (compilation) => {
-      HtmlWebpackPlugin.getHooks(compilation).beforeEmit.tapAsync(
-        "WebpackPwaSwPlugin",
-        (data, cb) => {
-          const scriptContent = `
-            if ('serviceWorker' in navigator) {
-              import { Workbox } from 'workbox-window';
-              const wb = new Workbox('/service-worker.js');
+    compiler.hooks.entryOption.tap("WebpackPwaSwPlugin", (context, entry) => {
+      //console.log('Original entry:', entry);
 
-              const showSkipWaitingPrompt = async (event) => {
-                wb.addEventListener('controlling', () => {
-                  window.location.reload();
-                });
+      if (typeof entry === "object" && !Array.isArray(entry)) {
+        //console.log('Entry is an object:', entry);
 
-                const result = confirm('New version available, reload?');
-                if (result) {
-                  wb.messageSkipWaiting();
-                }
-              };
+        // Iterate over each key in the entry object
+        Object.keys(entry).forEach((key) => {
+          const entryValue = entry[key];
 
-              wb.addEventListener('waiting', (event) => {
-                showSkipWaitingPrompt(event);
-              });
+          // Check if entry[key] has an `import` array
+          if (
+            entryValue &&
+            entryValue.import &&
+            Array.isArray(entryValue.import)
+          ) {
+            entryValue.import.push(serviceWorkerRegistrationPath);
+          } else if (Array.isArray(entryValue)) {
+            entry[key].push(serviceWorkerRegistrationPath);
+          } else if (typeof entryValue === "string") {
+            entry[key] = [entryValue, serviceWorkerRegistrationPath];
+          }
+        });
+      } else if (typeof entry === "string") {
+        //console.log('Entry is a string:', entry);
+        compiler.options.entry = [entry, serviceWorkerRegistrationPath];
+      } else if (Array.isArray(entry)) {
+        //console.log('Entry is an array:', entry);
+        compiler.options.entry.push(serviceWorkerRegistrationPath);
+      }
 
-              wb.register()
-                .then((reg) => {
-                  console.log('Service worker registered', reg);
-                })
-                .catch((err) => {
-                  console.error('Service worker registration failed', err);
-                });
-            }
-          `;
-
-          data.html = data.html.replace(
-            '</body>',
-            `<script type="module">${scriptContent}</script></body>`
-          );
-
-          data.html = data.html.replace(
-            '</head>',
-            '<link rel="manifest" href="/manifest.json"></head>'
-          );
-
-          cb(null, data);
-        }
-      );
+      //console.log('Modified entry:', compiler.options.entry);
     });
   }
 }
