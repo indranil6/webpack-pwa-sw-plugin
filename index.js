@@ -48,9 +48,11 @@ class WebpackPwaSwPlugin {
         );
       });
 
-      setupRuntimeCaching('${version || 0}', ${JSON.stringify(
-      this.options.runtimeCaching
-    )});
+      setupRuntimeCaching('${version || 0}', ${
+      this.options?.runtimeCaching
+        ? JSON.stringify(this.options?.runtimeCaching)
+        : '""'
+    });
     `;
   }
 
@@ -58,23 +60,24 @@ class WebpackPwaSwPlugin {
     const packageJsonPath = path.resolve(compiler.context, "package.json");
     const packageJson = require(packageJsonPath);
     const version = packageJson.version;
+    if (this.options?.manifest) {
+      compiler.hooks.emit.tapAsync(
+        "WebpackPwaSwPlugin",
+        (compilation, callback) => {
+          const manifest = {
+            ...this.options?.manifest,
+          };
 
-    compiler.hooks.emit.tapAsync(
-      "WebpackPwaSwPlugin",
-      (compilation, callback) => {
-        const manifest = {
-          ...this.options.manifest,
-        };
+          const manifestJson = JSON.stringify(manifest, null, 2);
+          compilation.assets["manifest.json"] = {
+            source: () => manifestJson,
+            size: () => manifestJson.length,
+          };
 
-        const manifestJson = JSON.stringify(manifest, null, 2);
-        compilation.assets["manifest.json"] = {
-          source: () => manifestJson,
-          size: () => manifestJson.length,
-        };
-
-        callback();
-      }
-    );
+          callback();
+        }
+      );
+    }
     // Generate the service worker code as a virtual module
     compiler.hooks.beforeCompile.tap("WebpackPwaSwPlugin", () => {
       const serviceWorkerContent = this.generateServiceWorker(version);
@@ -96,7 +99,7 @@ class WebpackPwaSwPlugin {
         /\.(map|bcmap|png|jpg|jpeg|gif|webp|svg|txt|json)$/,
         /(well-known|googleapis|cmaps)/,
       ],
-      ...this.options.workboxOptions,
+      ...(this.options?.workboxOptions || {}),
     }).apply(compiler);
 
     // Inject options via DefinePlugin

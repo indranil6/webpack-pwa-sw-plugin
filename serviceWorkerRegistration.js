@@ -1,7 +1,11 @@
 const { Workbox } = require("workbox-window");
 // Access the injected options
 const options = WEBPACK_PWA_SW_PLUGIN_OPTIONS;
-if ("serviceWorker" in navigator) {
+if (
+  "serviceWorker" in navigator &&
+  typeof options?.autoRegisterServiceWorker == "boolean" &&
+  options?.autoRegisterServiceWorker
+) {
   const wb = new Workbox("/service-worker.js");
 
   const reloadPage = () => {
@@ -13,7 +17,11 @@ if ("serviceWorker" in navigator) {
       console.log("You are offline. Cached content will be displayed.");
     } else {
       console.log("Connection restored. Reloading the application...");
-      if (options && options.reloadOnConnectionRestored) {
+      if (
+        options &&
+        typeof options?.reloadOnConnectionRestored == "boolean" &&
+        options?.reloadOnConnectionRestored
+      ) {
         reloadPage();
       }
     }

@@ -21,18 +21,18 @@ export function setupRuntimeCaching(version = 0, customConfig = "") {
     const plugins = [];
 
     // Add expiration plugin if defined
-    if (options.expiration) {
-      plugins.push(new ExpirationPlugin(options.expiration));
+    if (options?.expiration) {
+      plugins.push(new ExpirationPlugin(options?.expiration));
     }
 
     // Add cacheable response plugin if cacheableStatuses is defined
-    if (options.cacheableStatuses) {
+    if (options?.cacheableStatuses) {
       plugins.push(
-        new CacheableResponsePlugin({ statuses: options.cacheableStatuses })
+        new CacheableResponsePlugin({ statuses: options?.cacheableStatuses })
       );
     }
 
-    if (options.syncStrategies.includes("backgroundSync")) {
+    if (options?.syncStrategies.includes("backgroundSync")) {
       // Add background sync plugin if isBackgroundSyncEnabled is true
       const bgSyncPlugin = new BackgroundSyncPlugin(
         "api-post-queue" + "v" + version,
@@ -69,7 +69,7 @@ export function setupRuntimeCaching(version = 0, customConfig = "") {
       plugins.push(statusPlugin);
     }
 
-    if (options.syncStrategies.includes("broadcastUpdate")) {
+    if (options?.syncStrategies.includes("broadcastUpdate")) {
       plugins.push(
         new BroadcastUpdatePlugin({
           channelName: "api-channel" + "v" + version,
@@ -77,7 +77,7 @@ export function setupRuntimeCaching(version = 0, customConfig = "") {
       );
     }
 
-    if (options.useRangeRequests) {
+    if (options?.useRangeRequests) {
       plugins.push(new RangeRequestsPlugin());
     }
 
@@ -100,7 +100,7 @@ export function setupRuntimeCaching(version = 0, customConfig = "") {
       case "NetworkFirst":
         strategy = new NetworkFirst({
           cacheName: options.cacheName + "v" + version,
-          networkTimeoutSeconds: options.networkTimeoutSeconds,
+          networkTimeoutSeconds: options?.networkTimeoutSeconds || 10,
           plugins,
         });
         break;

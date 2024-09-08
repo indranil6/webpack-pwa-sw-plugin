@@ -7,7 +7,31 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "unlink": "npm unlink -g webpack-pwa-sw-plugin"
   },
-  "author": "Indranil Kundu",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/indranil6/webpack-pwa-sw-plugin.git"
+  },
+  "keywords": [
+    "webpack",
+    "plugin",
+    "pwa",
+    "webpack-pwa-plugin",
+    "webpack-pwa-sw-plugin",
+    "sw",
+    "progressive-web-app",
+    "service-worker",
+    "workbox",
+    "webpack-plugin",
+    "auto-registration",
+    "service-worker-plugin",
+    "webpack-pwa",
+    "reload-on-connection"
+  ],
+  "author": "Indranil Kundu <indranilkundu6@gmail.com>",
+  "bugs": {
+    "url": "https://github.com/indranil6/webpack-pwa-sw-plugin/issues"
+  },
+  "homepage": "https://github.com/indranil6/webpack-pwa-sw-plugin#readme",
   "license": "MIT",
   "dependencies": {
     "fs": "^0.0.1-security",
